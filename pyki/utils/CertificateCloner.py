@@ -3,6 +3,7 @@ import os
 import enum
 import getpass
 import argparse
+from utils.core import CertificateBase
 from OpenSSL import crypto
 
 
@@ -12,14 +13,15 @@ class DumpType(enum.Enum):
     pkcs12_all = enum.auto()
 
 
-class CertificateCloner:
+class CertificateCloner(CertificateBase):
     """
     This class clones the given certificate chain.
     """
 
-    def __init__(self, args: argparse.Namespace):
-        self._args = args
-        self._certificate_chain = []
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Load template certificates
+        self._certificate_chain = CertificateBase.read_certificates(self._args.template, self._pem_regex)
         self._cloned_certificate_chain = []
         self._dump = DumpType[self._args.dump]
         self._ca_pkcs12 = None
@@ -28,14 +30,6 @@ class CertificateCloner:
             passphrase = getpass.getpass(prompt="Passphrase for PKCS12 file: ")
             with open(self._args.pkcs12, "rb") as file:
                 self._ca_pkcs12 = crypto.load_pkcs12(file.read(), passphrase=passphrase)
-        # Load template certificates
-        self._pem_regex = re.compile("(?P<certificate>-+\s*BEGIN CERTIFICATE\s*-+.*?-+\s*END CERTIFICATE\s*-+)",
-                                     re.DOTALL)
-        with open(self._args.template, "r") as file:
-            content = file.read()
-            for certificate in self._pem_regex.finditer(content):
-                certificate = crypto.load_certificate(crypto.FILETYPE_PEM, certificate.group("certificate"))
-                self._certificate_chain.append(certificate)
         # Do some error checks
         if len(self._certificate_chain) == 0:
             raise ValueError("The template file does not contain a valid PEM certificate.")
@@ -139,7 +133,8 @@ If this argument is specified, then the file specified by --file must not contai
         """
         print("""Creating new certificate based on:
 - Issuer:  {}
-- Subject: {}""".format(template.get_subject(), template.get_issuer()))
+- Subject: {}""".format(self.print_x509_name(template.get_subject()),
+                        self.print_x509_name(template.get_issuer())))
         # Generate key
         key_bits = template.get_pubkey().bits()
         key_type = template.get_pubkey().type()
