@@ -4,6 +4,9 @@ import sys
 import enum
 import argparse
 from utils.core import CertificateBase
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
+from cryptography.hazmat.primitives.asymmetric.dsa import DSAPublicNumbers
+from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicNumbers
 
 
 class ReportFormat(enum.Enum):
@@ -52,6 +55,7 @@ class CertificatePrinter(CertificateBase):
         result = [["Version",
                    "Serial Number",
                    "Signature Algorithm",
+                   "Public Key Algorithm",
                    "Issuer",
                    "Subject",
                    "Valid Not Before",
@@ -68,6 +72,14 @@ class CertificatePrinter(CertificateBase):
             public_key = certificate.get_pubkey().to_cryptography_key().public_numbers()
             not_before = self.x509_date_to_datetime(certificate.get_notBefore())
             not_after = self.x509_date_to_datetime(certificate.get_notAfter())
+            if isinstance(public_key, RSAPublicNumbers):
+                public_key_name = "RSA"
+            elif isinstance(public_key, DSAPublicNumbers):
+                public_key_name = "DSA"
+            elif isinstance(public_key, EllipticCurvePublicNumbers):
+                public_key_name = public_key.curve.name
+            else:
+                raise NotImplementedError("case not implemented")
             for i in range(certificate.get_extension_count()):
                 extension = certificate.get_extension(i)
                 extension_name = extension.get_short_name().decode("utf-8")
@@ -76,6 +88,7 @@ class CertificatePrinter(CertificateBase):
             result.append([certificate.get_version(),  # Version
                            "".join(self.print_hex(certificate.get_serial_number())),  # Serial Number
                            certificate.get_signature_algorithm().decode("utf-8"),  # Signature Algorithm
+                           public_key_name,  # Public Key Algorithm
                            self.print_x509_name(certificate.get_issuer()),  # Issuer
                            self.print_x509_name(certificate.get_subject()),  # Subject
                            not_before.strftime("%Y-%m-%d %H:%M:%S %Y GMT"),  # Valid Not Before
@@ -108,11 +121,29 @@ class CertificatePrinter(CertificateBase):
             print("            Not After : {}".format(self.print_x509_date(certificate.get_notAfter())))
             print("        Subject: {}".format(self.print_x509_name(certificate.get_subject())))
             print("        Subject Public Key Info:")
-            print("                Public-Key: ({bits} bit)".format(bits=certificate.get_pubkey().bits()))
-            print("                Modulus:")
-            for line in self.print_hex(public_key.n, line_break_after_bytes=15):
-                print("                    {}".format(line))
-            print("                Exponent: {} ({})".format(public_key.e, hex(public_key.e)))
+            if isinstance(public_key, RSAPublicNumbers):
+                print("            Public Key Algorithm: rsaEncryption")
+                print("                Public-Key: ({bits} bit)".format(bits=certificate.get_pubkey().bits()))
+                print("                Modulus:")
+                for line in self.print_hex(public_key.n, line_break_after_bytes=15):
+                    print("                    {}".format(line))
+                print("                Exponent: {} ({})".format(public_key.e, hex(public_key.e)))
+            elif isinstance(public_key, DSAPublicNumbers):
+                print("            Public Key Algorithm: dsaEncryption")
+                print("                Public-Key: ({bits} bit)".format(bits=certificate.get_pubkey().bits()))
+                print("                Modulus:")
+                for line in self.print_hex(public_key.n, line_break_after_bytes=15):
+                    print("                    {}".format(line))
+                print("                Exponent: {} ({})".format(public_key.e, hex(public_key.e)))
+            elif isinstance(public_key, EllipticCurvePublicNumbers):
+                print("            Public Key Algorithm: id-ecPublicKey")
+                print("                Public-Key: ({bits} bit)".format(bits=certificate.get_pubkey().bits()))
+                # print("                Pub:")
+                # for line in self.print_hex(public_key., line_break_after_bytes=15):
+                #     print("                    {}".format(line))
+                print("                Curve Name: {}".format(public_key.curve.name))
+            else:
+                raise NotImplementedError("case not implemented")
             print("        X509v3 extensions:")
             for i in range(certificate.get_extension_count()):
                 extension = certificate.get_extension(i)
