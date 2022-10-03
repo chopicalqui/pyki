@@ -2,7 +2,9 @@ import os
 import csv
 import sys
 import enum
+import getpass
 import argparse
+from OpenSSL import crypto
 from utils.core import CertificateBase
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
 from cryptography.hazmat.primitives.asymmetric.dsa import DSAPublicNumbers
@@ -24,8 +26,17 @@ class CertificatePrinter(CertificateBase):
         self._certificates = []
         self._format = ReportFormat[self._args.format]
         # Load template certificates
-        for file in self._args.files:
-            self._certificates += CertificateBase.read_certificates(file, self._pem_regex)
+        for item in self._args.files:
+            if self._args.pkcs12:
+                passphrase = getpass.getpass(prompt="Passphrase for PKCS12 file: ")
+                with open(item, "rb") as file:
+                    pkcs12 = crypto.load_pkcs12(file.read(), passphrase=passphrase)
+                    root_ca = pkcs12.get_ca_certificates()
+                    if root_ca:
+                        self._certificates += root_ca
+                    self._certificates.append(pkcs12.get_certificate())
+            else:
+                self._certificates += CertificateBase.read_certificates(item, self._pem_regex)
 
     @staticmethod
     def get_add_argparse_arguments(sub_parser: argparse._SubParsersAction):
@@ -38,6 +49,9 @@ class CertificatePrinter(CertificateBase):
                             nargs="+",
                             help="File containing all certificates in PEM (base64) format, which shall be printed. "
                                  "Each file can contain several certificates.", action='store')
+        parser.add_argument('--pkcs12', action='store_true', help="If specified, then the given files are PKCS12 and "
+                                                                  "not text files containing all certificates in "
+                                                                  "PEM (base64) format.")
         parser.add_argument('-f', '--format',
                             choices=[item.name for item in ReportFormat],
                             default=ReportFormat.text.name,

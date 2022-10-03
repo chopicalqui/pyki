@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "pyki"
+version = "0.1.0"
+description = "Python3 project that implements certificate operations like cloning or printing certificates."
+authors = ["Lukas Reiter <chopicalqui@protonmail.com>"]
+license = "GPL-3.0 license"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+pyOpenSSL = "^22.1.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

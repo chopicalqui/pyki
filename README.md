@@ -9,7 +9,7 @@ and stores each newly created private/public keys plus corresponding certificate
 separate PKCS12 file. The PKCS12 files are stored in /tmp/test.
 
 ```bash
-python3 pyki/pyki.py clone -t testdata/stackexchange.pem -d pkcs12_all -o /tmp/test
+python3 pyki clone -t testdata/stackexchange.pem -d pkcs12_all -o /tmp/test
 ```
 
 ## Print
@@ -19,7 +19,7 @@ the following command
 
 ```bash
 # Printing the certificates located in testdata/stackexchange.pem as text
-python3 pyki/pyki.py print testdata/stackexchange.pem -f text
+python3 pyki print testdata/stackexchange.pem -f text
 # Printing the certificates located in testdata/stackexchange.pem as CSV
-python3 pyki/pyki.py print testdata/stackexchange.pem -f csv
+python3 pyki print testdata/stackexchange.pem -f csv
 ```

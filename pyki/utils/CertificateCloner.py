@@ -25,6 +25,8 @@ class CertificateCloner(CertificateBase):
         self._cloned_certificate_chain = []
         self._dump = DumpType[self._args.dump]
         self._ca_pkcs12 = None
+        if not os.path.isdir(self._args.output):
+            raise ValueError("The output argument does not specify an existing directory.")
         # Open PKCS12 file, if specified
         if self._args.pkcs12:
             passphrase = getpass.getpass(prompt="Passphrase for PKCS12 file: ")
@@ -77,12 +79,12 @@ issuer attribute will be set to the subject attribute.""")
         signing_group.add_argument('--pkcs12',
                                    type=str,
                                    help="""Path to a PKCS12 file, which contains the CA's private key that shall be used to
-to sign the newly created certificate chain.
+sign the newly created certificate chain.
 
-If this argument is specified, then the file specified by --file must not contain the root CA.""")
+If this argument is specified, then the file specified by --template must not contain the root CA's certificate.""")
         parser.add_argument('-d', '--dump',
                             choices=[item.name for item in DumpType],
-                            default=DumpType.pkcs12,
+                            default=DumpType.pkcs12.name,
                             help="""Specify how you want to store the cloned certificate chain.
 - pkcs12: Stores the entities private key and certificate together with the cloned bridge
     and root certificates in a PKCS12 file.
@@ -132,8 +134,8 @@ If this argument is specified, then the file specified by --file must not contai
         the second element contains the X509 certificate of the newly created certificate.
         """
         print("""Creating new certificate based on:
-- Issuer:  {}
-- Subject: {}""".format(self.print_x509_name(template.get_subject()),
+- Subject: {}
+- Issuer:  {}""".format(self.print_x509_name(template.get_subject()),
                         self.print_x509_name(template.get_issuer())))
         # Generate key
         key_bits = template.get_pubkey().bits()
