@@ -1,6 +1,9 @@
 import re
 import os
+import string
 import argparse
+
+import OpenSSL.crypto
 from OpenSSL import crypto
 from datetime import datetime
 
@@ -69,3 +72,16 @@ class CertificateBase:
         day = re.sub("^0", " ", datetime.strftime(item_date, '%d'))
         rest = datetime.strftime(item_date, "%H:%M:%S %Y GMT")
         return "{month} {day} {rest}".format(month=month, day=day, rest=rest)
+
+    @staticmethod
+    def get_extension(extension: OpenSSL.crypto.X509Extension, oid: str):
+        short_name = extension.get_short_name().decode()
+        if short_name != "UNDEF":
+            data = str(extension)
+        else:
+            short_name = oid
+            printables = [ord(item) for item in string.printable[:-2]]
+            data = ""
+            for item in extension.get_data():
+                data += chr(item) if item in printables else "."
+        return short_name, data

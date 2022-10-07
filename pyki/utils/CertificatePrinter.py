@@ -28,7 +28,10 @@ class CertificatePrinter(CertificateBase):
         # Load template certificates
         for item in self._args.files:
             if self._args.pkcs12:
-                passphrase = getpass.getpass(prompt="Passphrase for PKCS12 file: ")
+                if self._args.passphrase:
+                    passphrase = self._args.passphrase
+                else:
+                    passphrase = getpass.getpass(prompt="Passphrase for PKCS12 file: ")
                 with open(item, "rb") as file:
                     pkcs12 = crypto.load_pkcs12(file.read(), passphrase=passphrase)
                     root_ca = pkcs12.get_ca_certificates()
@@ -48,10 +51,13 @@ class CertificatePrinter(CertificateBase):
                             type=str,
                             nargs="+",
                             help="File containing all certificates in PEM (base64) format, which shall be printed. "
-                                 "Each file can contain several certificates.", action='store')
+                                 "Each file can contain several certificates.")
         parser.add_argument('--pkcs12', action='store_true', help="If specified, then the given files are PKCS12 and "
                                                                   "not text files containing all certificates in "
                                                                   "PEM (base64) format.")
+        parser.add_argument('-p', '--passphrase',
+                            type=str,
+                            help="Passphrase to read PKCS12 file.")
         parser.add_argument('-f', '--format',
                             choices=[item.name for item in ReportFormat],
                             default=ReportFormat.text.name,
@@ -83,6 +89,7 @@ class CertificatePrinter(CertificateBase):
                    "subjectAltName"]]
         for certificate in self._certificates:
             extensions = {}
+            c = certificate.to_cryptography()
             public_key = certificate.get_pubkey().to_cryptography_key().public_numbers()
             not_before = self.x509_date_to_datetime(certificate.get_notBefore())
             not_after = self.x509_date_to_datetime(certificate.get_notAfter())
@@ -96,12 +103,12 @@ class CertificatePrinter(CertificateBase):
                 raise NotImplementedError("case not implemented")
             for i in range(certificate.get_extension_count()):
                 extension = certificate.get_extension(i)
-                extension_name = extension.get_short_name().decode("utf-8")
-                extensions[extension_name] = {"value": str(extension),
-                                              "critical": extension.get_critical() == 1}
+                short_name, data = self.get_extension(extension, c.extensions[i].oid.dotted_string)
+                extensions[short_name] = {"value": data,
+                                          "critical": extension.get_critical() == 1}
             result.append([certificate.get_version(),  # Version
                            "".join(self.print_hex(certificate.get_serial_number())),  # Serial Number
-                           certificate.get_signature_algorithm().decode("utf-8"),  # Signature Algorithm
+                           certificate.get_signature_algorithm().decode(),  # Signature Algorithm
                            public_key_name,  # Public Key Algorithm
                            self.print_x509_name(certificate.get_issuer()),  # Issuer
                            self.print_x509_name(certificate.get_subject()),  # Subject
@@ -119,10 +126,12 @@ class CertificatePrinter(CertificateBase):
         csv_writer.writerows(result)
 
     def _print_text(self):
+        j = 1
         for certificate in self._certificates:
-            signature_algorithm = certificate.get_signature_algorithm().decode("utf-8")
+            c = certificate.to_cryptography()
+            signature_algorithm = certificate.get_signature_algorithm().decode()
             public_key = certificate.get_pubkey().to_cryptography_key().public_numbers()
-            print("Certificate:")
+            print("Certificate {}:".format(j))
             print("    Data:")
             print("        Version: {version} ({version_hex})".format(version=certificate.get_version(),
                                                                       version_hex=hex(certificate.get_version())))
@@ -161,7 +170,9 @@ class CertificatePrinter(CertificateBase):
             print("        X509v3 extensions:")
             for i in range(certificate.get_extension_count()):
                 extension = certificate.get_extension(i)
-                print("            {}: {}".format(extension.get_short_name().decode("utf-8"),
-                                                  "critical" if extension.get_critical() else ""))
-                for line in str(extension).split(os.linesep):
+                short_name, data = self.get_extension(extension, c.extensions[i].oid.dotted_string)
+                print("            {}: {}".format(short_name, "critical" if extension.get_critical() else ""))
+                for line in data.split("\n"):
                     print("                {}".format(line))
+            j += 1
+            print()
