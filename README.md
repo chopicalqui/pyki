@@ -2,6 +2,7 @@
 Python project which implements certificate operations like cloning or printing certificates.
 
 # Operations
+
 ## Clone
 
 The following command clones the certificate chain stored in testdata/stackexchange.pem
@@ -9,7 +10,7 @@ and stores each newly created private/public keys plus corresponding certificate
 separate PKCS12 file. The PKCS12 files are stored in /tmp/test.
 
 ```bash
-python3 pyki clone -t testdata/stackexchange.pem -d pkcs12_all -o /tmp/test
+python3 pyki/pyki.py clone -t testdata/stackexchange.pem -d pkcs12_all -o /tmp/test
 ```
 
 ## Print
@@ -19,7 +20,16 @@ the following command
 
 ```bash
 # Printing the certificates located in testdata/stackexchange.pem as text
-python3 pyki print testdata/stackexchange.pem -f text
+python3 pyki/pyki.py print testdata/stackexchange.pem -f text
 # Printing the certificates located in testdata/stackexchange.pem as CSV
-python3 pyki print testdata/stackexchange.pem -f csv
+python3 pyki/pyki.py print testdata/stackexchange.pem -f csv
+```
+
+
+## Query
+
+The following command queries the entire certificate chain and saves it in the output file `/tmp/test.txt`.
+
+```bash
+python3 pyki/pyki.py query -o /tmp/test.txt www.google.com:443
 ```

@@ -106,6 +106,14 @@ class CertificatePrinter(CertificateBase):
                 short_name, data = self.get_extension(extension, c.extensions[i].oid.dotted_string)
                 extensions[short_name] = {"value": data,
                                           "critical": extension.get_critical() == 1}
+            if isinstance(public_key, RSAPublicNumbers) or isinstance(public_key, DSAPublicNumbers):
+                public_key_bits = certificate.get_pubkey().bits()
+                exponent = public_key.e
+            elif isinstance(public_key, EllipticCurvePublicNumbers):
+                public_key_bits = None
+                exponent = None
+            else:
+                raise NotImplementedError("case not implemented")
             result.append([certificate.get_version(),  # Version
                            "".join(self.print_hex(certificate.get_serial_number())),  # Serial Number
                            certificate.get_signature_algorithm().decode(),  # Signature Algorithm
@@ -114,8 +122,8 @@ class CertificatePrinter(CertificateBase):
                            self.print_x509_name(certificate.get_subject()),  # Subject
                            not_before.strftime("%Y-%m-%d %H:%M:%S %Y GMT"),  # Valid Not Before
                            not_after.strftime("%Y-%m-%d %H:%M:%S %Y GMT"),  # Valid Not After
-                           certificate.get_pubkey().bits(),  # Public Key Size
-                           public_key.e,  # Exponent
+                           public_key_bits,  # Public Key Size
+                           exponent,  # Exponent
                            extensions["keyUsage"]["value"] if "keyUsage" in extensions else None,  # keyUsage
                            extensions["extendedKeyUsage"]["value"] if "extendedKeyUsage" in extensions else None,  # extendedKeyUsage
                            extensions["subjectKeyIdentifier"]["value"] if "subjectKeyIdentifier" in extensions else None,  # subjectKeyIdentifier

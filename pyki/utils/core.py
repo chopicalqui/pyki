@@ -1,9 +1,10 @@
 import re
 import os
+import socket
 import string
 import argparse
-
 import OpenSSL.crypto
+from OpenSSL import SSL
 from OpenSSL import crypto
 from datetime import datetime
 
@@ -85,3 +86,36 @@ class CertificateBase:
             for item in extension.get_data():
                 data += chr(item) if item in printables else "."
         return short_name, data
+
+    @staticmethod
+    def get_certs_from_service(hostname: str, port: int):
+        ctx = SSL.Context(SSL.SSLv23_METHOD)
+        connection = SSL.Connection(ctx, socket.socket(socket.AF_INET, socket.SOCK_STREAM))
+        connection.connect((str(hostname), port))
+        connection.set_verify(SSL.VERIFY_NONE)
+        # The following line is required in order to obtain all certificates
+        connection.set_tlsext_host_name(str.encode(hostname))
+        connection.setblocking(1)
+        connection.do_handshake()
+        result = connection.get_peer_cert_chain()
+        return [crypto.dump_certificate(crypto.FILETYPE_PEM, item).decode() for item in result]
+
+    @staticmethod
+    def get_certs_from_service2(hostname: str, port: int):
+        ctx = SSL.Context(SSL.SSLv23_METHOD)
+        with socket.create_connection((hostname, port)) as s:
+            connection = SSL.Connection(ctx, s)
+            connection.set_connect_state()
+            connection.set_verify(SSL.VERIFY_NONE)
+            connection.set_tlsext_host_name(str.encode(hostname))
+            connection.do_handshake()
+
+            #s.sendall(str.encode('HEAD / HTTP/1.0\n\n'))
+
+            peerCertChain = connection.get_peer_cert_chain()
+            pemFile = ''
+
+            for cert in peerCertChain:
+                pemFile += crypto.dump_certificate(crypto.FILETYPE_PEM, cert).decode("utf-8")
+
+        return pemFile
